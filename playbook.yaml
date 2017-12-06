@@ -1,0 +1,40 @@
+---
+- hosts: all
+  become: true
+
+  tasks:
+    - name: Update apt
+      apt: update_cache=yes
+
+    - name: Install Packages
+      apt: name={{ item }} state=latest
+      with_items:
+        - vim
+        - git
+        - snmpd
+
+    - name: Download SNMP distro
+      get_url:
+        url: https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/distro
+        dest: /usr/bin/distro
+
+    - name: Make distro script executable
+      file: dest=/usr/bin/distro mode=+x
+
+    - name: Download SNMP OS updates
+      get_url:
+        url: https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/os-updates.sh
+        dest: /etc/snmp/os-updates.sh
+
+    - name: Make os updates script executable
+      file: dest=/etc/snmp/os-updates.sh mode=+x
+
+    - name: Setup apt-update automatically
+      template: src=apt-periodic.tpl /etc/apt/apt.conf.d/10periodic
+
+    - name: Setup SNMP Deamon configuration file
+      template: src=snmpd.conf.tpl /etc/snmp/snmpd.conf
+      notify: restart snmpd
+  handlers:
+    - name: restart snmpd
+      service: name=snmpd enabled=yes state=restarted
